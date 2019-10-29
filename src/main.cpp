@@ -8,10 +8,11 @@ using namespace std;
  
 //重要参数
 const int NUM=21;//输入图片的张数
-const double lower_E=10000000; //harris角点的阈值
-const double upper_E=100000000;
 const double lower_k = 0.01; /// lower_E = lower_k * max_E
 const double k = 0.05;// det - k * trace*trace
+const int threshold1 = 40;
+const double threshold2 = 2;
+//if(dis1[i][0] < 40 && dis2[j][1] == i && (dis1[i][2] / dis1[i][1]) > 2){
 
 
 //
@@ -54,7 +55,7 @@ void getFeaturePoints();
 void NMS(int NO, double Emax);
 void getDescriptors();
 double hammingDistance(vector<int> vec1, vector<int> vec2); //两个向量间的汉明距离
-void findMatchPoints(int no1, int no2);
+void findMatchPoints(int no1, int no2, vector<cv::Point2i> &goodmatch1, vector<cv::Point2i> &goodmatch2);
 void stitch();
 
 void test(){
@@ -114,8 +115,8 @@ void getFeaturePoints(){
     memset(Emap,0,sizeof(Emap));
     for(int no = 0; no<NUM; no++){
         double Emax = -9999999;//用来存能量的最大值
-        for(int i=1; i<oriGrey[no].rows-1; i++){
-            for(int j=1; j<oriGrey[no].cols-1; j++){
+        for(int i=51; i<oriGrey[no].rows-51; i++){
+            for(int j=51; j<oriGrey[no].cols-51; j++){
                 Eigen::Matrix<double, 2, 2> Matrix_22;
                 //自相关矩阵
                 double xx=0, yy=0, xy=0;
@@ -140,16 +141,16 @@ void getFeaturePoints(){
             cv::circle(oriRGB[no], var.P,3,cv::Scalar(0,0,255),1);
         }
         //可视化，获取特征点之后的图片
-        cv::imshow(to_string(no), oriRGB[no]);
-        cv::waitKey(0);
+        // cv::imshow(to_string(no), oriRGB[no]);
+        // cv::waitKey(0);
     }
 
 }
 
 void NMS(int NO, double Emax){
     //@berief 非极大值抑制
-    for(int i=1; i<oriGrey[0].rows-1; i++){
-        for(int j=1; j<oriGrey[0].cols-1; j++){
+    for(int i=51; i<oriGrey[0].rows-51; i++){
+        for(int j=51; j<oriGrey[0].cols-51; j++){
             int isLocalMax = 1;
             if(Emap[i][j] > lower_k * Emax){
                 for(int ii = i-1; ii<i+1; ii++){
@@ -204,7 +205,7 @@ double hammingDistance(vector<int> vec1, vector<int> vec2){
     return res;
 }
 
-void findMatchPoints(int no1, int no2){
+void findMatchPoints(int no1, int no2, vector<cv::Point2i> &goodmatch1, vector<cv::Point2i> &goodmatch2){
 
     double dis1[FeaturePoints[no1].size()][4]; //0,1,2,3 最小距离，序号，次小距离，序号
     double dis2[FeaturePoints[no2].size()][4];
@@ -234,9 +235,10 @@ void findMatchPoints(int no1, int no2){
                 dis1[i][3] = j;
                 dis1[i][2] = dis;
             }
+
             if(dis2[j][0] > dis){
-                dis2[j][3] = dis2[i][1];
-                dis2[j][2] = dis2[i][0];
+                dis2[j][3] = dis2[j][1];
+                dis2[j][2] = dis2[j][0];
                 dis2[j][1] = i;
                 dis2[j][0] = dis;
             }
@@ -247,12 +249,9 @@ void findMatchPoints(int no1, int no2){
         }
     }
 
-    vector<cv::Point2i> goodmatch1;
-    vector<cv::Point2i> goodmatch2;
-
     for(int i=0; i<FeaturePoints[no1].size(); i++){
         int j = dis1[i][1];
-        if(dis1[i][0] < 40 && dis2[j][1] == i && (dis1[i][2] / dis1[i][1]) > 2){
+        if(dis1[i][0] < threshold1 && dis2[j][1] == i && ((1.0)*dis1[i][0] / (1.0)*dis1[i][2]) > threshold2){
             goodmatch1.push_back(FeaturePoints[no1][i].P);
             goodmatch2.push_back(FeaturePoints[no2][j].P);
         }
@@ -263,8 +262,8 @@ void findMatchPoints(int no1, int no2){
     cv::Mat result(oriRGB[no1].rows,oriRGB[no1].cols+oriRGB[no2].cols+1,oriRGB[no1].type());
     oriRGB[no1].colRange(0,oriRGB[no1].cols).copyTo(result.colRange(0,oriRGB[no1].cols));
     oriRGB[no2].colRange(0,oriRGB[no2].cols).copyTo(result.colRange(oriRGB[no1].cols+1,result.cols));
-    cv::imshow("drawMatched", result);
-    cv::waitKey(0);
+    // cv::imshow("drawMatched", result);
+    // cv::waitKey(0);
 
     cout<<"size1:"<<goodmatch1.size()<<endl;
     cout<<"size2:"<<goodmatch2.size()<<endl;
@@ -272,17 +271,19 @@ void findMatchPoints(int no1, int no2){
         //将匹配点之间画上一条线
         cv::line(result, goodmatch1[i], cv::Point2i(goodmatch2[i].x + oriRGB[no1].cols, goodmatch2[i].y), cv::Scalar(0,0,255),1);
     }
-    cv::imshow("drawMatched", result);
+    cv::imshow(to_string(no1)+"_to_"+to_string(no2), result);
     cv::waitKey(0);
 
 }
 
 void stitch(){
+
+    int mask[21]={};
     for(int i=0; i<NUM; i++){ 
-        findMatchPoints(0,i);
-        /*
-         *此处写两张图的拼接代码
-         */
+        vector<cv::Point2i> goodmatch1;
+        vector<cv::Point2i> goodmatch2;
+        findMatchPoints(1, i, goodmatch1, goodmatch2);
+        // cv::Mat H = findHomography(goodmatch1, goodmatch1);//找到投影变换矩阵
 
 
     }
