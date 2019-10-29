@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/Users/yanyucheng/OneDrive/codeProjects/imageStitching/build",
+  "command": "/usr/bin/clang++   -I/Users/yanyucheng/OneDrive/codeProjects/imageStitching/include -I/usr/local/include/eigen3 -isystem /usr/local/Cellar/opencv@3/3.4.5_4/include -isystem /usr/local/Cellar/opencv@3/3.4.5_4/include/opencv  -O3 -DNDEBUG -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk -mmacosx-version-min=10.14   -std=c++11 -o CMakeFiles/main.dir/src/main.cpp.o -c /Users/yanyucheng/OneDrive/codeProjects/imageStitching/src/main.cpp",
+  "file": "/Users/yanyucheng/OneDrive/codeProjects/imageStitching/src/main.cpp"
+}
+]

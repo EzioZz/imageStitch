@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/local/opt/opencv@3/include/**",
+                "/usr/local/Cellar/opencv@3/3.4.5_4/include/**",
+                "/usr/local/Cellar/opencv@3/3.4.5_4/include/opencv2",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/**",
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/**",
+                "/usr/local/Cellar/pcl/1.9.1_4/include/pcl-1.9/pcl/**",
+                "/usr/local/Cellar/eigen/3.3.7/include/eigen3/**",
+                "/usr/local/include/eigen3",
+                "/usr/local/Cellar/vtk/8.2.0_3/include/vtk-8.2/**",
+                "/usr/local/Cellar/vtk/8.2.0_3/include/vtk-8.2",
+                "/usr/local/Cellar/pcl/1.9.1_4/include/pcl-1.9"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/System/Library/Frameworks",
+                "/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64",
+            "configurationProvider": "vector-of-bool.cmake-tools",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+        }
+    ],
+    "version": 4
+}
