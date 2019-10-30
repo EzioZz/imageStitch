@@ -10,7 +10,7 @@ using namespace std;
 const int NUM=21;//输入图片的张数
 const double lower_k = 0.01; /// lower_E = lower_k * max_E
 const double k = 0.05;// det - k * trace*trace
-const int threshold1 = 40;
+const int threshold1 = 10;
 const double threshold2 = 2;
 //if(dis1[i][0] < 40 && dis2[j][1] == i && (dis1[i][2] / dis1[i][1]) > 2){
 
@@ -39,6 +39,18 @@ struct Pair{
     }
 };
 
+struct Corners{
+    cv::Point2i top_left;
+    cv::Point2i top_right;
+    cv::Point2i bottom_left;
+    cv::Point2i bottom_right;
+};
+
+vector<double> Corners_x;
+vector<double> Corners_y;
+double trans_x; //为了将图像显示在正数范围内需要平移的距离
+double trans_y; //trans_x = -min_x; trans_y = -min_y;
+
 
 
 //产生的数据
@@ -57,6 +69,7 @@ void getDescriptors();
 double hammingDistance(vector<int> vec1, vector<int> vec2); //两个向量间的汉明距离
 void findMatchPoints(int no1, int no2, vector<cv::Point2i> &goodmatch1, vector<cv::Point2i> &goodmatch2);
 void stitch();
+cv::Mat myfindHomography(vector<cv::Point2i> goodmatch1, vector<cv::Point2i> goodmatch2);
 
 void test(){
     // vector<int> vec1,vec2;
@@ -73,7 +86,6 @@ int main(){
     getFeaturePoints();
     getDescriptors();
     stitch();
-
 }
 
 void inputData(){
@@ -265,8 +277,8 @@ void findMatchPoints(int no1, int no2, vector<cv::Point2i> &goodmatch1, vector<c
     // cv::imshow("drawMatched", result);
     // cv::waitKey(0);
 
-    cout<<"size1:"<<goodmatch1.size()<<endl;
-    cout<<"size2:"<<goodmatch2.size()<<endl;
+    // cout<<"size1:"<<goodmatch1.size()<<endl;
+    // cout<<"size2:"<<goodmatch2.size()<<endl;
     for(int i=0; i<goodmatch1.size(); i++){
         //将匹配点之间画上一条线
         cv::line(result, goodmatch1[i], cv::Point2i(goodmatch2[i].x + oriRGB[no1].cols, goodmatch2[i].y), cv::Scalar(0,0,255),1);
@@ -276,17 +288,106 @@ void findMatchPoints(int no1, int no2, vector<cv::Point2i> &goodmatch1, vector<c
 
 }
 
+cv::Mat myfindHomography(vector<cv::Point2i> goodmatch1, vector<cv::Point2i> goodmatch2){
+    
+}
+
+void CalCorners(cv::Mat src, cv::Mat H){
+    Corners c;
+    // Mat array = (Mat_<double>(3, 3) << 0, -1, 5, -1, 5, -1, 0, -1, 0);
+    cv::Mat top_right = (cv::Mat_<double>(3,1)   << 1.0 * src.cols, 1.0 * src.rows, 1.0 );
+    cv::Mat top_left = (cv::Mat_<double>(3,1)    << 0, 1.0 * src.rows, 1.0);
+    cv::Mat bottom_right = (cv::Mat_<double>(3,1)<< 1.0 * src.cols, 0, 1.0);
+    cv::Mat bottom_left = (cv::Mat_<double>(3,1) << 0, 0, 1.0);
+    cv::Mat H_top_right = H * top_right;
+    cv::Mat H_top_left = H * top_left;
+    cv::Mat H_bottom_right = H * bottom_right;
+    cv::Mat H_bottom_left = H * bottom_left;
+    c.top_right = cv::Point2i( H_top_right.at<double>(0,0), H_top_right.at<double>(1,0));
+    c.top_left = cv::Point2i( H_top_left.at<double>(0,0), H_top_left.at<double>(1,0));
+    c.bottom_right = cv::Point2i( H_bottom_right.at<double>(0,0), H_bottom_right.at<double>(1,0));
+    c.bottom_left = cv::Point2i( H_bottom_left.at<double>(0,0), H_bottom_left.at<double>(1,0));
+    // cout<<c.top_left<<","<<c.top_right<<","<<c.bottom_left<<","<<c.bottom_right<<endl;
+    Corners_x.push_back(c.top_left.x); Corners_x.push_back(c.top_right.x); Corners_x.push_back(c.bottom_left.x); Corners_x.push_back(c.bottom_right.x);
+    Corners_y.push_back(c.top_left.y); Corners_y.push_back(c.top_right.y); Corners_y.push_back(c.bottom_left.y); Corners_y.push_back(c.bottom_right.y); 
+}
+
+cv::Scalar interpolatio(double x, double y, int no){  
+    //双线性插值，返回插值点的RGB
+    cv::Point2i P0((int)x, (int)y);   
+    cv::Point2i P1((int)x, (int)y + 1);
+    cv::Point2i P2((int)x + 1, (int)y + 1);
+    cv::Point2i P3((int)x + 1, (int)y);
+    cv::Scalar num0 = 1.0 * oriRGB[no].at<cv::Vec3b>(P0.x, P0.y);
+    cv::Scalar num1 = 1.0 * oriRGB[no].at<cv::Vec3b>(P1.x, P1.y);
+    cv::Scalar num3 = 1.0 * oriRGB[no].at<cv::Vec3b>(P3.x, P3.y);
+    cv::Scalar num2 = 1.0 * oriRGB[no].at<cv::Vec3b>(P2.x, P2.y);
+    cv::Scalar dnumdy1 = 1.0 * (num1-num0);
+    cv::Scalar dnumdy2 = 1.0 * (num2-num3);
+    cv::Scalar num4 = num0 + ((1.0)*y - (1.0)*P0.y)*dnumdy1;
+    cv::Scalar num5 = num3 + ((1.0)*y - (1.0)*P3.y)*dnumdy2;
+
+    cv::Point2i P4; cv::Point2i P5;
+    P4.x = P1.x;
+    P5.x = P2.x;
+    cv::Scalar dnumdx = 1.0*(num5-num4)/1.0;
+    cv::Scalar numpt = num4 + dnumdx * ((1.0)*x - (1.0)*P4.x);
+    return numpt;
+}
+
+
+
 void stitch(){
+    int no0 = 0;
+    int no1 = 3;
+    Corners_x.clear();
+    Corners_y.clear();
+    trans_x = 0;
+    trans_y = 0;
 
-    int mask[21]={};
-    for(int i=0; i<NUM; i++){ 
-        vector<cv::Point2i> goodmatch1;
-        vector<cv::Point2i> goodmatch2;
-        findMatchPoints(1, i, goodmatch1, goodmatch2);
-        // cv::Mat H = findHomography(goodmatch1, goodmatch1);//找到投影变换矩阵
+    Corners_x.push_back(0); Corners_x.push_back(oriRGB[0].cols);
+    Corners_y.push_back(0); Corners_y.push_back(oriRGB[0].rows);
+    vector<cv::Point2i> goodmatch1;
+    vector<cv::Point2i> goodmatch2;
+    findMatchPoints(no0, no1, goodmatch1, goodmatch2);  //计算图片no0和no1的goodmatchPoints
 
+    cv::Mat H = cv::findHomography(goodmatch1, goodmatch2, CV_RANSAC);//找到投影变换矩阵，从图像1到图像2的映射变换
+    CalCorners(oriRGB[no1], H.inv()); //将新图像变化到0号图坐标系后的点，加入Corners_x和Corners_y中
 
+    auto max_x_p = max_element(Corners_x.begin(), Corners_x.end());
+    auto min_x_p = min_element(Corners_x.begin(), Corners_x.end());
+    auto max_y_p = max_element(Corners_y.begin(), Corners_y.end());
+    auto min_y_p = min_element(Corners_y.begin(), Corners_y.end());
+
+    cout<<*max_x_p<<","<<*max_y_p<<","<<*min_x_p<<","<<*min_y_p<<endl;
+    trans_x -= *min_x_p;
+    trans_y -= *min_y_p;
+    double maxHeight = *max_y_p - *min_y_p + 1;
+    double maxWidth = *max_x_p - *min_x_p + 1; 
+    cv::Mat res(maxHeight, maxWidth, CV_8UC3, cv::Scalar(0,0,0));
+    
+    cv::Rect roi_rect = cv::Rect(maxWidth - oriRGB[no0].cols, maxHeight - oriRGB[no0].rows, oriRGB[no0].cols, oriRGB[no0].rows);
+    oriRGB[no0].copyTo(res(roi_rect));
+
+    // cv::Mat top_right = (cv::Mat_<double>(3,1) << 1.0 * src.cols, 1.0 * src.rows, 1.0 );
+    for(int j = *min_y_p; j < *max_y_p; j++){
+        for(int i = *min_x_p ; i < *max_x_p; i++){
+
+            cv::Mat p = (cv::Mat_<double>(3,1) << 1.0 * i, 1.0 * j, 1.0 );
+            p = H * p;
+            int x = p.at<double>(0,0);
+            int y = p.at<double>(1,0);
+            if(x<0 || y<0 || x > oriRGB[0].cols || y > oriRGB[0].rows) continue;
+            cv::Scalar temp = interpolatio( y, x, no1);
+            // cout<<i+trans_x<<","<<j+trans_y<<endl;
+            res.at<cv::Vec3b>(cv::Point2i(i+trans_x, j+trans_y)) = cv::Vec3b(temp[0], temp[1], temp[2]);
+        }
     }
+
+    imshow("res", res);
+    cv::waitKey(0);
+
+
 
 }
 
